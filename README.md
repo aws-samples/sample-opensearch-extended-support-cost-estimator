@@ -91,12 +91,12 @@ These are the minimum permissions needed to create and execute the cloudformatio
 
 1. On your laptop, clone the project in a local directory
     ```
-    git clone <Repo Link>
+    git clone https://github.com/aws-samples/sample-opensearch-extended-support-cost-estimator.git
     ```
 
 2. Navigate into the project
     ```
-    cd openserach_extended_support_cost_estimator
+    cd sample-opensearch-extended-support-cost-estimator
     ```
 
 ## Step 2: Create the CloudFormation StackSets
