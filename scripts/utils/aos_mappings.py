@@ -10,50 +10,6 @@ from utils.utils import ValidationException
 
 LOGGER = get_logger('aos_mappings')
 
-'''
-This function tries to get the regions Opensearch is supported in by scraping the HTML page
-from AWS Opensearch documentation. The logic relies on a specific table id in the HTML code.
-However, that table id keeps changing with every (nightly) deployment/update of AWS docs.
-As a result, the  below code is not used, and instead I have hardcoded the regions currently supported.
-This implies we will need to manually update the regions when new ones are announced, until a more 
-dynamic solution is found
-'''
-def get_aos_regions_2():
-    LOGGER.debug("Extracting a list of AWS Regions for RDS")
-    url = "https://docs.aws.amazon.com/general/latest/gr/opensearch-service.html"
-    try:
-        response = requests.get(url, timeout=10)    # 10 seconds
-        response.raise_for_status()
-    except Exception as e:
-        LOGGER.error(f'Failed to get a http response from {url} to get AWS regions, script exiting...')
-        raise
-    soup = BeautifulSoup(response.content, "html.parser")
-
-    #regions_section = soup.find("h3", {"id": "Concepts.RegionsAndAvailabilityZones.Availability"})
-    #LOGGER.debug(f'Regions section: {regions_section}')
-
-    #regions_section_tables = regions_section.find_all_next("table")
-    #LOGGER.debug(f'Regions section tables: {regions_section_tables}')
-
-    table = soup.find("table", {"id": "w102aac14d408b5b7"})
-    #table = regions_section_tables[0]
-    rows = table.find_all("tr")[1:]
-
-    regions_map = {}
-    #populate regions_map with all RDS supported regions
-    for row in rows:
-        cols = row.find_all("td")
-        region_name = cols[0].text.strip()
-        region_id = cols[1].text.strip()
-        regions_map[region_id] = region_name
-
-    LOGGER.debug(f'Regions map: {regions_map}')
-    LOGGER.debug(f'Number of regions: {len(regions_map)}')
-    with open('aos_regions.json', 'w', encoding="utf-8") as f:
-            json.dump(regions_map, f)
-
-    return regions_map
-
 def get_aos_regions(regions_file_path):
     LOGGER.debug("Extracting a list of AWS Regions for Opensearch")
 
@@ -282,10 +238,10 @@ def get_aos_extended_support_mapping():
 
 def get_opensearch_extended_support_cost():
     ''' Scrape the Opensearch pricing page to extract Extended Support charges
-        However, this might break if the HTML code of that page changes, whihc happens frequently.
+        However, this might break if the HTML code of that page changes, which happens frequently.
         The alternatives are:
           1/ hard code the current regional proce for extended support in a file, which will/can get outdated 
-          2/ dynamically get the Opensearch Extended Support costs using teh AWS Pricing API - however,
+          2/ dynamically get the Opensearch Extended Support costs using the AWS Pricing API - however,
           the Pricing API doesn't yet return extended support costs for Opensearch. 
     '''
     def get_price_map(table):

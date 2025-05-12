@@ -12,16 +12,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from botocore.exceptions import ClientError
 
-''' Supress the following
-DeprecationWarning: 
-Pyarrow will become a required dependency of pandas in the next major release of pandas (pandas 3.0),
-(to allow more performant data types, such as the Arrow string type, and better interoperability with other libraries)
-but was not found to be installed on your system.
-If this would cause problems for you,
-please provide us feedback at https://github.com/pandas-dev/pandas/issues/54466
-'''
-#import warnings
-#warnings.filterwarnings("ignore", category=DeprecationWarning) 
 import pandas as pd
 
 from utils.utils import (
@@ -113,7 +103,7 @@ def get_aos_domains(aos_client):
     except ClientError as err:
         if err.response["Error"]["Code"] == "InvalidClientTokenId":
             LOGGER.error("Received InvalidClientTokenId error - perhaps Region {} is not enabled for the account. Skipping region ...".format(aos_client.meta.region_name))
-            #raise ValidationException("Script can only be run in regions that have been enabled")
+            raise ClientError("Script can only be run in regions that have been enabled") from err
         else:
             raise err
     except Exception as err:
@@ -125,11 +115,10 @@ def get_opensearch_extended_support_instances(account_id, caller_account):
     global AOS_INSTANCE_MAPPING
     global AOS_EXTENDED_SUPPORT_VERSIONS
     domain_keys = ['DomainName', 'ARN', 'EngineVersion']
-    #instance_keys = ['DedicatedMasterType', 'DedicatedMasterCount', 'InstanceType', 'InstanceCount']
     opensearch_extended_support_instances = []
 
     #### OVERRIDE - FOR TESTING ###
-    REGIONS = {'us-east-1':'US East (N. Virginia)', 'us-west-2': 'US West (Oregon)', 'eu-west-1': 'Europe (Ireland)'}
+    #REGIONS = {'us-east-1':'US East (N. Virginia)', 'us-west-2': 'US West (Oregon)', 'eu-west-1': 'Europe (Ireland)'}
     #### OVERRIDE - FOR TESTING ###
 
     for region in REGIONS:
@@ -138,8 +127,6 @@ def get_opensearch_extended_support_instances(account_id, caller_account):
         
         try: 
             aos_domains = get_aos_domains(aos_client)
-
-            #print(f'===> OpenSerach Domains: {aos_domains}')
             LOGGER.info(f'Found {len(aos_domains)} OpenSearch domains in account {account_id} in region {region}')
 
             # Need to chunk in group of 5s otherwise describe_domains API throws an error - 
@@ -152,9 +139,7 @@ def get_opensearch_extended_support_instances(account_id, caller_account):
 
                 for domain in domain_details['DomainStatusList']:
                     LOGGER.debug(f'Domain: {domain}')
-                    # Opensearch versions are of the format OpenSearch_X.Y, whereas Elasticsearch versions just return X.Y, 
-                    # so in order to make it consistent, create aos_version and append Elastisearch if its not present.
-                    #aos_version = domain['EngineVersion'] if 'OpenSearch' in domain['EngineVersion'] else "Elasticsearch_"+domain['EngineVersion']
+                    # Opensearch versions are of the format OpenSearch_X.Y, whereas Elasticsearch versions just return X.Y
                     aos_version = domain['EngineVersion']
                     if is_extended_support_eligible(aos_version):
                         shortlist_instance = {}
@@ -163,7 +148,6 @@ def get_opensearch_extended_support_instances(account_id, caller_account):
                         shortlist_instance['RegionName'] = REGIONS[region]
 
                         domain_info = {key: domain[key] for key in domain_keys}
-                        #instance_details = {key: domain['ClusterConfig'][key] if key in domain['ClusterConfig'] else "" for key in instance_keys}
                         shortlist_instance.update(domain_info)
 
                         # Master nodes
@@ -187,7 +171,6 @@ def get_opensearch_extended_support_instances(account_id, caller_account):
                         # Data nodes
                         shortlist_instance['InstanceType'] = domain['ClusterConfig']['InstanceType']
                         shortlist_instance['InstanceCount'] = domain["ClusterConfig"]['InstanceCount']
-                        #shortlist_instance.update(instance_details)
                         
                         instance_size = shortlist_instance['InstanceType'].split('.')[1]
                         if instance_size not in AOS_INSTANCE_MAPPING:
@@ -249,10 +232,10 @@ def get_opensearch_extended_support_instances(account_id, caller_account):
 
                         opensearch_extended_support_instances.append(shortlist_instance)
                         LOGGER.info(f"Instance: {shortlist_instance['DomainName']} is eligible for extended support as its version is: {shortlist_instance['EngineVersion']}")
-        # except Exception as e:
-        #     LOGGER.info("Account: {} | Received Exception - message: {}".format(account_id, e.message))
-        #     LOGGER.info("Account: {} | Perhaps Region {} is not enabled for the account. Skipping region ...".format(account_id, region))
-        #     continue
+        except ClientError as e:
+            LOGGER.info("Account: {} | Received Exception - message: {}".format(account_id, e))
+            LOGGER.info("Account: {} | Perhaps Region {} is not enabled for the account. Skipping region ...".format(account_id, region))
+            continue
         except Exception as e:
             LOGGER.info("Account: {} | Received Exception: {}".format(account_id, e))
             raise e

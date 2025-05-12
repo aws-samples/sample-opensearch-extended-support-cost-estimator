@@ -10,10 +10,10 @@ def get_logger(name):
     Setup and return a logger that writes to stdout with logging level set to INFO
     """
     logger = logging.getLogger(name)
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.INFO)
 
     handler = logging.StreamHandler(sys.stdout)
-    handler.setLevel(logging.DEBUG)
+    handler.setLevel(logging.INFO)
     formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(threadName)s - %(message)s')
     handler.setFormatter(formatter)
 
